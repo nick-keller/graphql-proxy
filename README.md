@@ -1,13 +1,16 @@
-# GraphQL Proxy
-GraphQL Proxy is a generic utility that provides an elegant and consistent API for 
+# GraphQL-Proxy
+GraphQL-Proxy is a generic utility that provides an elegant and consistent API for 
 fetching and computing data in an optimised way via parallelization, lazy-loading, and caching.
 
-While not mandatory, it is recommended to use GraphQL Proxy with 
+While not mandatory, it is recommended to use GraphQL-Proxy with 
 [DataLoader](https://github.com/graphql/dataloader) which provides batching and 
 caching at the data fetching layer.
 
-## Parallelization
-When building a GraphQL API you usually end-up writing resolvers like so:
+If you are new to GraphQL-Proxy you should read the introduction, otherwise you can skip right to the [getting started](#getting-started)
+
+## Introduction
+### Your GraphQL backend is not optimized
+When building a GraphQL API, a naive approach is to write resolvers like so:
 ```js
 const resolvers = {
   Query: {
@@ -21,7 +24,7 @@ const resolvers = {
   }
 }
 ```
-And when resolving this query:
+It is pretty intuitive and easy to reason about. Now let's run our resolvers against this query:
 ```graphql
 {
   article(id: 46) {
@@ -32,7 +35,7 @@ And when resolving this query:
   }
 }
 ```
-Resolvers are executed in this order:
+If you trace the execution time of each resolver you get a graph like this one:
 ```
 |---------| Query.article (1 database call)
           |-| Article.title (default resolver)
@@ -41,20 +44,12 @@ Resolvers are executed in this order:
 ```
 
 The problem here is fairly obvious, the 3 database calls are run sequentially which makes the request
-slower than it could have been. The `Article.comments` resolver only needs the article's id, which is 
-available right from the start.
+slower than it could have been. The `Article.comments` resolver only needs the article's id to resolve, 
+but we wait for the entire article to be fetched first. 
 
-With GraphQL Proxy you get parallelization out of the box, resolvers execution now looks like this:
-```
-|-| Query.article
-  |---------| Article.title (1 database call)
-  |---------| Article.comments (1 database call)
-            |---------| Comment.message (1 database call)
-                       //////// Amount of time spared
-```
-
-## Lazy-loading
-Now let's take the same example but only querying the comment's ids:
+We will see how to solve this parallelization issue,
+but first we need to address a second issue we face with this naive approach: over-fetching. 
+To illustrate this, let's only querying the comment's ids:
 ```graphql
 {
   article(id: 46) {
@@ -64,37 +59,142 @@ Now let's take the same example but only querying the comment's ids:
   }
 }
 ```
-With the naive approach, the resolvers execution will look like this:
+Now tracing looks like this:
 ```
 |---------| Query.article (1 database call)
           |-----------------| Article.comments (2 database call)
                             |-| Comment.id (default resolver)
 ```
 
+So we end up doing 3 queries to the database where one would have been enough.
 This is a classic example where we end up executing useless database calls 
-that slow down the entire request and puts unnecessary stress on the database.
+that slow down the entire request and puts unnecessary stress on the infrastructure.
 
-With GraphQL Proxy you only execute database calls when needed, which in this particular case
-would end up executing only 1 query instead of 3:
+### Thinking with proxies
+A better approach is to fetch data at field-level in your resolvers:
+```js
+const resolvers = {
+  Query: {
+    article: (_, { id }) => id
+  },
+  Article: {
+    id: (articleId) => articleId,
+    title: async (articleId, _, { articleLoader }) => {
+      const { title } = await articleLoader.load(articleId)
+      return title
+    },
+    comments: async (articleId, _, { articleCommentIdsLoader }) => {
+      return articleCommentIdsLoader.load(articleId)
+    },
+  },
+  Comment: {
+    id: (commentId) => commentId,
+    message: async(commentId, _, { commentLoader }) => {
+      const { message } = await commentLoader.load(commentId)
+      return message
+    }
+  }
+}
+```
+
+This is only possible thanks to DataLoader, without it we might query the same thing multiple times.
+But with batching and caching this is definitely not an issue.
+
+Let's run our first query once again. Resolvers tracing now looks like this:
+```
+|-| Query.article
+  |---------| Article.title (1 database call)
+  |---------| Article.comments (1 database call)
+            |---------| Comment.message (1 database call)
+                       //////// Amount of time spared
+```
+
+You can clearly see that parallelization is working and that we spared quite some time 
+to the overall request execution time.
+
+With this pattern you also get lazy-loading for free, which means that you do not over-fetch like in our previous example.
+Let's run the second query and trace our resolvers execution time:
 ```
 |-| Query.article
   |---------| Article.comments (1 database call)
             |-| Comment.id
                //////////////// Amount of time spared
 ```
+As you can see we only execute 1 database call instead of 3, 
+and significantly reduce the overall request execution time.
 
-## Caching
-Caching at the data fetching layer is crucial and is tackled by [DataLoader](https://github.com/graphql/dataloader).
-GraphQL Proxy acts on top of it to tackles caching at the computation layer.
+### Computed fields
+Let's imagine that you have a fancy heuristic that computes the amount of time it takes to read an article.
+You just have to update your schema and add a resolver to make it available through your API:
+ 
+```js
+const resolvers = {
+  Article: {
+    timeToRead: async (articleId, _, { articleLoader }) => {
+      const { content } = await articleLoader.load(articleId)
+      return computeTimeToRead(content)
+    },
+  },
+}
+```
 
-It means that computation-heavy functions on your entities are executed at most once throughout your application,
-even when called on multiple, unrelated parts.
+This solution works well, but if you want to compute the `timeToRead` somewhere else in your application,
+let's say for sorting purposes, you will have to call `computeTimeToRead` again and do the computation twice.
 
-Cherry on the cake, GraphQL Proxy makes it trivial to cache the result of those functions in a data store like 
-Redis without impacting your code.
+We obviously need to put some cache in place. A global Lodash `memoize` would work but the cache would keep inflating 
+until the server is re-started using up precious memory space. 
+We need to memoize our function at a per-request level and pass it to the context:
+
+```js
+const resolvers = {
+  Article: {
+    timeToRead: async (articleId, _, { articleLoader, computeTimeToRead }) => {
+      const { content } = await articleLoader.load(articleId)
+      return computeTimeToRead(content)
+    },
+  },
+}
+```
+
+Now if you want to cache this information in a store like Redis you will have to completely refactor your code.
+
+```js
+const createComputeTimeToRead = (articleLoader) => memoize(async(articleId) => {
+  const redisValue = await getRedisValue(`article:${articleId}:timeToRead`)
+
+  if (redisValue !== null) {
+    return redisValue  
+  }
+
+  const { content } = await articleLoader.load(articleId)
+  const timeToRead = computeTimeToRead(content)
+
+  await setRedisValue(`article:${articleId}:timeToRead`, timeToRead)
+  return timeToRead
+})
+
+// When creating the context for each request
+const context = {
+  // ...
+  articleLoader,
+  computeTimeToRead: createComputeTimeToRead(articleLoader),
+}
+
+const resolvers = {
+  Article: {
+    timeToRead: async (articleId, _, { computeTimeToRead }) => {
+      return computeTimeToRead(articleId)
+    },
+  },
+}
+```
+
+You will now have to do this for every computed field that you wish to cache.
+
+This is where GraphQL-Proxy comes into play.
 
 # Getting Started
-Install GraphQL Proxy using npm.
+Install GraphQL-Proxy using npm.
 ```
 npm i graphql-proxy
 ```
@@ -135,7 +235,7 @@ Unlike what is demonstrated in the example, you should never have to access the 
 it will most likely only be used from within getter and methods.
 
 # Getting data from the database
-GraphQL Proxy works very well with DataLoader. 
+GraphQL-Proxy works very well with DataLoader. 
 All you have to do is pass a `loaders` object in the context with the same key as the `entityType`:
 ```js
 const userLoader = new DataLoader(/* ... */)

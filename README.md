@@ -7,7 +7,7 @@ GraphQL-Proxy is perfectly integrated with
 caching at the data fetching layer.
 
 If you are new to GraphQL-Proxy you should read this introduction, 
-otherwise you can skip right to the [getting started](#getting-started) section.
+otherwise you can skip right to the [getting started](#getting-started) section or to the [API documentation](API.md).
 
 ## Introduction
 ### Your GraphQL backend is not optimized
@@ -229,33 +229,34 @@ const resolvers = {
 }
 
 // After
-const User = createProxy({ entityType: 'User' })
+const Article = createProxy({ entityType: 'Article' })
 
 const resolvers = {
   Query: {
-    article: (_, { id }) => new User(id)
+    article: (_, { id }) => new Article(id)
   },
   Article: {
-    id: (user) => user.id 
+    id: (article) => article.id 
   }
 }
 ```
 
-The `Article.id` now receives a `User` proxy and returns the id of that 
+The `Article.id` now receives an `Article` proxy and returns the id of that 
 proxy instead of simply returning the id it receives. 
-And because this behaviour is exactly what the default resolvers do in GraphQL, we can omit the id resolver altogether:
+And because this behaviour is exactly what the default resolver does in GraphQL, 
+we can omit the id resolver altogether:
 
 ```js
-const User = createProxy({ entityType: 'User' })
+const Article = createProxy({ entityType: 'Article' })
 
 const resolvers = {
   Query: {
-    article: (_, { id }) => new User(id)
+    article: (_, { id }) => new Article(id)
   }
 }
 ```
 
-Remember that doing `new User(id)` does not actually do anything, no database calls, no checks. 
+Remember that doing `new Article(id)` does not actually do anything, no database calls, no checks. 
 Just like when we simply returned the id but wrapped in a class. 
 
 ## Fetching data
@@ -263,24 +264,141 @@ We are now going to implement the `title` and `content` resolvers.
 We need to tell our proxy how to fetch data from our database using DataLoader.
 The first thing you want to do is adding your loader to your GraphQL context:
 ```js
-const userLoader = new DataLoader(/*...*/)
+const articleLoader = new DataLoader(/*...*/)
 
 const context = {
   loaders: {
-    User: userLoader
+    Article: articleLoader
   }
 }
 ```
 
-And when instantiating a user, simply forward the loaders from the GraphQL context to the proxy context:
+And when instantiating an article, simply forward the loaders from the GraphQL context to the proxy context:
 ```js
-const User = createProxy({ entityType: 'User' })
+const Article = createProxy({ entityType: 'Article' })
 
 const resolvers = {
   Query: {
-    article: (_, { id }, { loaders }) => new User(id, { loaders })
+    article: (_, { id }, { loaders }) => new Article(id, { loaders })
   }
 }
 ```
 
 And that is it, the `title` and `content` resolvers are up and running!
+
+It looks magical but the mechanisms behind are trivials. 
+First we did not write any resolvers, which is equivalent to writing the default resolver by hand:
+```js
+const resolvers = {
+  Article: {
+    id: (article) => article.id,
+    title: (article) => article.title,
+    content: (article) => article.content,
+  }
+}
+```
+
+`article.id` simply returns the value we passed when instantiating the proxy without any database call.
+
+We did not specify anything for `article.title` and `article.content` so the proxy falls-back to
+getting those values from the database using the `loaders` object we passed to the context.
+
+This works because we followed the following convention:
+- When instantiating the article we passed a `loaders` object to the context.
+- The `loaders` object has a key equal to `entityType` of `createProxy({ entityType })` with a DataLoader as value.
+- The DataLoader `.load(id)` function returns an object with the keys `title` and `content`.
+
+Remember that data-fetching occurs at field-level, this means that `article.title` and `article.content` are promises:
+```js
+const resolvers = {
+  Article: {
+    titleUpper: async(article) => (await article.title).toUpperCase(),
+  }
+}
+```
+
+## Adding getters
+In this section we will implement the `Article.comments` resolver. 
+Just like `article.title` is a Promise that resolves to the title of the article, we expect `article.comments`
+to be a Promise that resolves to an array of... `Comment` proxies of course!
+
+So the first thing to do is to create the `Comment` proxy class:
+```js
+const Comment = createProxy({ entityType: 'Comment' })
+```
+We can now add the `articleCommentIdsLoader` and `commentLoader` loaders to the GraphQL context:
+```js
+const articleLoader = new DataLoader(/*...*/)
+const commentLoader = new DataLoader(/*...*/)
+const articleCommentIdsLoader = new DataLoader(/*...*/)
+
+const context = {
+  loaders: {
+    Article: articleLoader,
+    Comment: commentLoader,
+    articleCommentIdsLoader,
+  }
+}
+```
+
+Remember that when we instantiate an Article we pass it the `laoders` object:
+```js
+const resolvers = {
+  Query: {
+    article: (_, { id }, { loaders }) => new Article(id, { loaders })
+  }
+}
+```
+
+So our article proxy has access to the `articleCommentIdsLoader` through its context, 
+we just need to write the getter for `article.comments`.
+Getters are defined when creating the proxy class:
+```js
+const Comment = createProxy({ entityType: 'Comment' })
+const Article = createProxy({ 
+  entityType: 'Article',
+  getters: {
+    async comments() {
+      const ids = await this.context.loaders.articleCommentIdsLoader.load(this.id)
+      return ids.map((id) => new Comment(id, this.context))
+    }
+  } 
+})
+```
+
+And that is it, all endpoints are now working.
+
+Here is a recap of the necessary code to make this work, note how much clearer it looks compared to the raw solution we had at the beggining:
+```js
+// When setting up the GraphQL context for every request
+const articleLoader = new DataLoader(/*...*/)
+const commentLoader = new DataLoader(/*...*/)
+const articleCommentIdsLoader = new DataLoader(/*...*/)
+
+const context = {
+  loaders: {
+    Article: articleLoader,
+    Comment: commentLoader,
+    articleCommentIdsLoader,
+  }
+}
+
+// Declare your proxy classes only once
+const Comment = createProxy({ entityType: 'Comment' })
+const Article = createProxy({ 
+  entityType: 'Article',
+  getters: {
+    async comments() {
+      const ids = await this.context.loaders.articleCommentIdsLoader.load(this.id)
+      return ids.map((id) => new Comment(id, this.context))
+    }
+  } 
+})
+
+// Write the only resolver you need
+const resolvers = {
+  Query: {
+    article: (_, { id }, { loaders }) => new Article(id, { loaders })
+  }
+}
+```

@@ -1,8 +1,16 @@
 # API reference
 
+## Install
+```
+npm i @nick-keller/graphql-proxy
+```
+
 ## Creating proxy classes
 
 ```js
+import { createProxy } from '@nick-keller/graphql-proxy'
+const { createProxy } = require('@nick-keller/graphql-proxy')
+
 const User = createProxy({ entityType: 'User' })
 const user = new User(46)
 

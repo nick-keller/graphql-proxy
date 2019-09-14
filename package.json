@@ -3,6 +3,13 @@
   "version": "1.0.0",
   "description": "A GraphQL utility to to optimize your application via parallelization, lazy-loading, and caching.",
   "main": "src/index.js",
+  "keywords": [
+    "grqphql",
+    "parallelization",
+    "lazy-loading",
+    "caching"
+  ],
+  "repository": "nick-keller/graphql-proxy",
   "scripts": {
     "test": "jest"
   },

@@ -1,5 +1,7 @@
 # GraphQL-Proxy
 ![npm](https://img.shields.io/npm/v/@nick-keller/graphql-proxy)
+![Travis (.org)](https://img.shields.io/travis/nick-keller/graphql-proxy)
+![Coveralls github](https://img.shields.io/coveralls/github/nick-keller/graphql-proxy)
 
 GraphQL-Proxy is a generic utility that provides an elegant and consistent API for 
 fetching and computing data in an optimised way via parallelization, lazy-loading, and caching.

@@ -121,16 +121,13 @@ module.exports.createProxy = ({ entityType, getters = {}, methods = {}, } = {}) 
 
     return new Proxy(this, {
       get: (object, property, proxy) => {
+        console.log(object.__proto__)
         if (property === 'then') {
           return null
         }
 
         if (property in object) {
           return object[property]
-        }
-
-        if (property in object.__proto__) {
-          return object.__proto__[property]
         }
 
         if (methods[property]) {

@@ -1,6 +1,6 @@
 {
   "name": "@nick-keller/graphql-proxy",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A GraphQL utility to to optimize your application via parallelization, lazy-loading, and caching.",
   "main": "src/index.js",
   "keywords": [

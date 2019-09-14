@@ -1,4 +1,6 @@
 # GraphQL-Proxy
+![npm](https://img.shields.io/npm/v/@nick-keller/graphql-proxy)
+
 GraphQL-Proxy is a generic utility that provides an elegant and consistent API for 
 fetching and computing data in an optimised way via parallelization, lazy-loading, and caching.
 
@@ -310,11 +312,8 @@ This works because we followed the following convention:
 
 Remember that data-fetching occurs at field-level, this means that `article.title` and `article.content` are promises:
 ```js
-const resolvers = {
-  Article: {
-    titleUpper: async(article) => (await article.title).toUpperCase(),
-  }
-}
+const article = new Article(id, { loaders })
+console.log((await article.title).toUpperCase())
 ```
 
 ## Adding getters
@@ -341,15 +340,7 @@ const context = {
 }
 ```
 
-Remember that when we instantiate an Article we pass it the `laoders` object:
-```js
-const resolvers = {
-  Query: {
-    article: (_, { id }, { loaders }) => new Article(id, { loaders })
-  }
-}
-```
-
+Remember that when we instantiate an Article we pass it the `laoders` object. 
 So our article proxy has access to the `articleCommentIdsLoader` through its context, 
 we just need to write the getter for `article.comments`.
 Getters are defined when creating the proxy class:

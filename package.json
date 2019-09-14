@@ -1,13 +1,13 @@
 {
-  "name": "graphql-proxy",
+  "name": "@nick-keller/graphql-proxy",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A GraphQL utility to to optimize your application via parallelization, lazy-loading, and caching.",
+  "main": "src/index.js",
   "scripts": {
     "test": "jest"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Nicolas Keller",
+  "license": "MIT",
   "devDependencies": {
     "jest": "^24.9.0"
   },

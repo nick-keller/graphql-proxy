@@ -12,7 +12,7 @@
   "repository": "nick-keller/graphql-proxy",
   "scripts": {
     "test": "jest",
-    "ci": "jest --coverage && cat ./tests/coverage/lcov.info | coveralls"
+    "ci": "jest --coverage && cat ./coverage/lcov.info | coveralls"
   },
   "author": "Nicolas Keller",
   "license": "MIT",

@@ -11,11 +11,13 @@
   ],
   "repository": "nick-keller/graphql-proxy",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "ci": "jest --coverage && cat ./tests/coverage/lcov.info | coveralls"
   },
   "author": "Nicolas Keller",
   "license": "MIT",
   "devDependencies": {
+    "coveralls": "^3.0.6",
     "jest": "^24.9.0"
   },
   "dependencies": {}

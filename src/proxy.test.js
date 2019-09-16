@@ -211,3 +211,32 @@ describe('assertExists method', () => {
     await expect(user.assertExists()).rejects.toThrow('Does not exist')
   })
 })
+
+describe('clearCache method', () => {
+  test('entityLoader has no clear function', async() => {
+    const User = createProxy({ getters: { entityLoader() { return {}} }})
+    const user = new User('foo')
+
+    await expect(() => user.clearCache()).toThrow(
+      'The proxy entityLoader.clear should be a function. ' +
+      'Either make sure the "entityLoader" getter returns a dataLoader, ' +
+      'or override the default "clearCache" method with your own logic.'
+    )
+  })
+
+  test('is clearing cache', async() => {
+    const clear = jest.fn()
+    const foo = jest.fn(() => 'bar')
+    const User = createProxy({ getters: { foo, entityLoader() { return { clear }} }})
+    const user = new User(46)
+
+    expect(user.foo).toBe('bar')
+    expect(foo).toHaveBeenCalledTimes(1)
+
+    user.clearCache()
+
+    expect(user.foo).toBe('bar')
+    expect(foo).toHaveBeenCalledTimes(2)
+    expect(clear).toHaveBeenCalledWith(46)
+  })
+})

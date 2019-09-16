@@ -213,7 +213,7 @@ Now that we have the big picture we can dive right into implementing GraphQL-Pro
 # Getting Started
 Install GraphQL-Proxy using npm.
 ```
-npm i graphql-proxy
+npm i @nick-keller/graphql-proxy
 ```
 
 ## Creating proxy classes
@@ -233,6 +233,8 @@ const resolvers = {
 }
 
 // After
+import { createProxy } from '@nick-keller/graphql-proxy'
+
 const Article = createProxy({ entityType: 'Article' })
 
 const resolvers = {
@@ -342,7 +344,7 @@ const context = {
 }
 ```
 
-Remember that when we instantiate an Article we pass it the `laoders` object. 
+Remember that when we instantiate an Article we pass it the `loaders` object. 
 So our article proxy has access to the `articleCommentIdsLoader` through its context, 
 we just need to write the getter for `article.comments`.
 Getters are defined when creating the proxy class:
@@ -377,6 +379,8 @@ const context = {
 }
 
 // Declare your proxy classes only once
+import { createProxy } from '@nick-keller/graphql-proxy'
+
 const Comment = createProxy({ entityType: 'Comment' })
 const Article = createProxy({ 
   entityType: 'Article',

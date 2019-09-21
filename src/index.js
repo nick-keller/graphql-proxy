@@ -1,5 +1,9 @@
-module.exports.createProxy = ({ entityType, getters = {}, methods = {}, } = {}) => {
-  Object.entries(getters).forEach(([ getter, callback, ]) => {
+module.exports.createProxy = ({
+  entityType,
+  getters = {},
+  methods = {},
+} = {}) => {
+  Object.entries(getters).forEach(([getter, callback]) => {
     if (typeof callback !== 'function') {
       throw new Error(
         'Proxy getters should be functions, ' +
@@ -16,14 +20,16 @@ module.exports.createProxy = ({ entityType, getters = {}, methods = {}, } = {}) 
 
     if (/^[^{]+?=>/.test(callback.toString())) {
       throw new Error(
-        `Proxy getters should not be arrow functions, but getter "${getter}" is. ` +
-        `Replace its declaration with "${getter}() {...}" or "${getter}: function() {...}" ` +
+        'Proxy getters should not be arrow functions, ' +
+        `but getter "${getter}" is. ` +
+        `Replace its declaration with "${getter}() {...}" or ` +
+        `"${getter}: function() {...}" ` +
         'in order to enable "this" binding.'
       )
     }
   })
 
-  Object.entries(methods).forEach(([ method, callback, ]) => {
+  Object.entries(methods).forEach(([method, callback]) => {
     if (typeof callback !== 'function') {
       throw new Error(
         'Proxy methods should be functions, ' +
@@ -33,8 +39,10 @@ module.exports.createProxy = ({ entityType, getters = {}, methods = {}, } = {}) 
 
     if (/^[^{]+?=>/.test(callback.toString())) {
       throw new Error(
-        `Proxy methods should not be arrow functions, but method "${method}" is. ` +
-        `Replace its declaration with "${method}() {...}" or "${method}: function() {...}" ` +
+        'Proxy methods should not be arrow functions, ' +
+        `but method "${method}" is. ` +
+        `Replace its declaration with "${method}() {...}" or ` +
+        `"${method}: function() {...}" ` +
         'in order to enable "this" binding.'
       )
     }
@@ -44,7 +52,8 @@ module.exports.createProxy = ({ entityType, getters = {}, methods = {}, } = {}) 
     if (!this.context.loaders) {
       throw new Error(
         'The proxy context.loaders is not defined. ' +
-        'Either pass a "loaders" object in the context when instantiating an entity, ' +
+        'Either pass a "loaders" object in the context when ' +
+        'instantiating an entity, ' +
         'or override the default "entityLoader" getter with your own logic.'
       )
     }
@@ -74,7 +83,9 @@ module.exports.createProxy = ({ entityType, getters = {}, methods = {}, } = {}) 
     const dataValues = await this.entityLoader.load(this.id)
 
     if (!dataValues) {
-      throw new Error(`Entity ${this.entityType} with id "${this.id}" does not exist.`)
+      throw new Error(
+        `Entity ${this.entityType} with id "${this.id}" does not exist.`
+      )
     }
 
     return dataValues
@@ -121,29 +132,34 @@ module.exports.createProxy = ({ entityType, getters = {}, methods = {}, } = {}) 
 
     return new Proxy(this, {
       get: (object, property, proxy) => {
-        console.log(object.__proto__)
+        // Only Promises should have a then property
         if (property === 'then') {
           return null
         }
 
+        // Direct property access (id, context, ...)
         if (property in object) {
           return object[property]
         }
 
+        // Method access
         if (methods[property]) {
           return methods[property].bind(proxy)
         }
 
+        // Magic getter access
         if (!getters[property]) {
           return proxy.dataValues.then((dataValues) => dataValues[property])
         }
 
+        // Lazy-load cache
         if (object._cache[property] === undefined) {
           object._cache[property] = getters[property].call(proxy)
         }
 
+        // Getter access
         return object._cache[property]
-      }
+      },
     })
   }
 }

@@ -41,12 +41,8 @@ It is pretty intuitive and easy to reason about. Now let's run our resolvers aga
 }
 ```
 If you trace the execution time of each resolver you get a graph like this one:
-```
-|---------| Query.article (1 database call)
-          |-| Article.title (default resolver)
-          |-----------------| Article.comments (2 database call)
-                            |-| Comment.message (default resolver)
-```
+
+![](https://graph-up.herokuapp.com/vvM8lfdu)
 
 The problem here is fairly obvious, the 3 database calls are run sequentially which makes the request
 slower than it could have been. The `Article.comments` resolver only needs the article's id to resolve, 
@@ -65,11 +61,8 @@ To illustrate what this means, let's only querying the comment's ids:
 }
 ```
 Now tracing looks like this:
-```
-|---------| Query.article (1 database call)
-          |-----------------| Article.comments (2 database call)
-                            |-| Comment.id (default resolver)
-```
+
+![](https://graph-up.herokuapp.com/u172e8t2)
 
 We end up doing 3 queries to the database where one would have been enough.
 This is a classic example where we end up executing useless database calls 
@@ -110,24 +103,16 @@ You might be worry that when querying the title and the content we would end up 
 but thanks to DataLoader queries are de-dupe and cached precisely to avoid this issue.
 
 Let's run our first query once again and look at tracing results:
-```
-|-| Query.article
-  |---------| Article.title (1 database call)
-  |---------| Article.comments (1 database call)
-            |---------| Comment.message (1 database call)
-                       //////// Amount of time spared
-```
+
+![](https://graph-up.herokuapp.com/weIm0VhT)
 
 You can clearly see that some parallelization is going on and that we reduced the response time significantly.
 
 With this pattern you also get lazy-loading for free, which means that you do not over-fetch like in our previous example.
 Let's run the second query once again to illustrate:
-```
-|-| Query.article
-  |---------| Article.comments (1 database call)
-            |-| Comment.id
-               //////////////// Amount of time spared
-```
+
+![](https://graph-up.herokuapp.com/02zQAr-V)
+
 As you can see we only executed 1 database call instead of 3, 
 and significantly reduce the overall response time.
 

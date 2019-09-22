@@ -2,13 +2,13 @@
 
 ## Install
 ```
-npm i @nick-keller/graphql-proxy
+npm i gql-proxy
 ```
 
 ## Creating proxy classes
 
 ```js
-import { createProxy } from '@nick-keller/graphql-proxy'
+import { createProxy } from 'gql-proxy'
 
 const User = createProxy({ entityType: 'User' })
 const user = new User(46)
@@ -225,3 +225,18 @@ const User = createProxy({
 ```
 
 ## Methods
+Methods let you define functions for your proxies:
+```js
+const User = createProxy({ 
+  entityType: 'User',
+  methods: {
+    async isPassword(password) {
+      return await this.hashedPassword === hash(password)
+    }
+  }
+})
+
+const user = new User(46)
+
+console.log(await user.isPassword('rocket')) // => true
+```

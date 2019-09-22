@@ -1,5 +1,5 @@
 # GraphQL-Proxy
-![npm](https://img.shields.io/npm/v/@nick-keller/graphql-proxy)
+![npm](https://img.shields.io/npm/v/gql-proxy)
 ![Travis (.org)](https://img.shields.io/travis/nick-keller/graphql-proxy)
 ![Coveralls github](https://img.shields.io/coveralls/github/nick-keller/graphql-proxy)
 
@@ -198,7 +198,7 @@ Now that we have the big picture we can dive right into implementing GraphQL-Pro
 # Getting Started
 Install GraphQL-Proxy using npm.
 ```
-npm i @nick-keller/graphql-proxy
+npm i gql-proxy
 ```
 
 ## Creating proxy classes
@@ -218,7 +218,7 @@ const resolvers = {
 }
 
 // After
-import { createProxy } from '@nick-keller/graphql-proxy'
+import { createProxy } from 'gql-proxy'
 
 const Article = createProxy({ entityType: 'Article' })
 
@@ -364,7 +364,7 @@ const context = {
 }
 
 // Declare your proxy classes only once
-import { createProxy } from '@nick-keller/graphql-proxy'
+import { createProxy } from 'gql-proxy'
 
 const Comment = createProxy({ entityType: 'Comment' })
 const Article = createProxy({ 
